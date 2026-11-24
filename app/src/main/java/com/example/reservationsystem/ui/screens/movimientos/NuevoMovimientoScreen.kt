@@ -44,17 +44,28 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.ui.Alignment
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.annotation.RequiresApi
+import androidx.compose.material3.LinearProgressIndicator
+import com.example.reservationsystem.domain.auth.UsuarioSesion
+import com.example.reservationsystem.domain.model.ResultadoOperacion
+import kotlinx.coroutines.CancellationException
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NuevoMovimientoScreen(
     viewModel: MainViewModel,
+    usuario: UsuarioSesion,
     onVolver: () -> Unit,
     movimientoId: Int? = null
 ) {
     val context = LocalContext.current
 
-    var form by remember { mutableStateOf(MovimientoFormState()) }
+    var form by remember(usuario.id, movimientoId) {
+        mutableStateOf(MovimientoFormState())
+    }
     var uriFoto by remember { mutableStateOf<Uri?>(null) }
     var tipoExpandido by remember { mutableStateOf(false) }
 
@@ -71,6 +82,20 @@ fun NuevoMovimientoScreen(
             }
         }
     }
+
+    var guardando by remember { mutableStateOf(false) }
+
+    var cargando by remember(usuario.id, movimientoId) {
+        mutableStateOf(movimientoId != null)
+    }
+
+    var errorCarga by remember { mutableStateOf<String?>(null) }
+    var errorGuardado by remember { mutableStateOf<String?>(null) }
+    var intentoCarga by remember { mutableStateOf(0) }
+
+    val ocupado = cargando || guardando
+
+    BackHandler(enabled = ocupado) { }
 
     fun crearUriComprobante(): Uri {
         val carpeta = File(context.filesDir, "comprobantes")
@@ -103,16 +128,35 @@ fun NuevoMovimientoScreen(
         }
     }
 
-    LaunchedEffect(movimientoId) {
-        if (movimientoId != null) {
-            val movimientoExistente = viewModel.obtenerFormularioMovimientoPorId(movimientoId)
+    LaunchedEffect(movimientoId, usuario.id, intentoCarga) {
+        val id = movimientoId
 
-            if (movimientoExistente != null) {
-                form = movimientoExistente
+        if (id == null) {
+            cargando = false
+        } else {
+            cargando = true
+            errorCarga = null
 
-                form.rutaComprobante?.let {
-                    uriFoto = Uri.parse(it)
+            try {
+                val existente = viewModel.obtenerFormularioMovimientoPorId(
+                    id = id,
+                    usuario = usuario
+                )
+
+                if (existente == null) {
+                    errorCarga = "El movimiento ya no existe."
+                } else {
+                    form = existente
+                    uriFoto = existente.rutaComprobante?.let {
+                        Uri.parse(it)
+                    }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                errorCarga = "No se pudo cargar el movimiento."
+            } finally {
+                cargando = false
             }
         }
     }
@@ -126,7 +170,11 @@ fun NuevoMovimientoScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {*/
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -142,6 +190,33 @@ fun NuevoMovimientoScreen(
                     style = MaterialTheme.typography.headlineSmall
                 )
 
+                if (ocupado) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                errorCarga?.let { mensaje ->
+                    Text(
+                        text = mensaje,
+                        color = MaterialTheme.colorScheme.error
+                    )
+
+                    OutlinedButton(
+                        onClick = { intentoCarga++ },
+                        enabled = !ocupado
+                    ) {
+                        Text("Reintentar carga")
+                    }
+                }
+
+                errorGuardado?.let { mensaje ->
+                    Text(
+                        text = mensaje,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
                 OutlinedTextField(
                     value = form.descripcion,
                     onValueChange = {
@@ -155,7 +230,8 @@ fun NuevoMovimientoScreen(
                     supportingText = {
                         form.descripcionError?.let { Text(it) }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !ocupado && errorCarga == null
                 )
 
                 OutlinedTextField(
@@ -171,7 +247,8 @@ fun NuevoMovimientoScreen(
                     supportingText = {
                         form.montoError?.let { Text(it) }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !ocupado && errorCarga == null,
                 )
 
                 OutlinedTextField(
@@ -188,7 +265,8 @@ fun NuevoMovimientoScreen(
                     supportingText = {
                         form.fechaError?.let { Text(it) }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !ocupado && errorCarga == null,
                 )
 
                 Text("Tipo de movimiento")
@@ -196,7 +274,9 @@ fun NuevoMovimientoScreen(
                 ExposedDropdownMenuBox(
                     expanded = tipoExpandido,
                     onExpandedChange = {
-                        tipoExpandido = it
+                        if (!ocupado && errorCarga == null) {
+                            tipoExpandido = it
+                        }
                     }
                 ) {
                     OutlinedTextField(
@@ -214,7 +294,8 @@ fun NuevoMovimientoScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(),
+                        enabled = !ocupado && errorCarga == null,
                     )
 
                     ExposedDropdownMenu(
@@ -258,7 +339,8 @@ fun NuevoMovimientoScreen(
                             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !ocupado && errorCarga == null,
                 ) {
                     Text("Tomar foto del comprobante")
                 }
@@ -323,27 +405,63 @@ fun NuevoMovimientoScreen(
             ) {
                 OutlinedButton(
                     onClick = onVolver,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    enabled = !ocupado,
                 ) {
                     Text("Cancelar")
                 }
 
                 Button(
                     onClick = {
-                        val resultado = viewModel.agregarMovimiento(form)
-                        val tieneErrores = resultado.descripcionError != null ||
-                                resultado.montoError != null ||
-                                resultado.fechaError != null
+                        if (!ocupado && errorCarga == null) {
+                            guardando = true
+                            errorGuardado = null
+                            tipoExpandido = false
 
-                        if (tieneErrores) {
-                            form = resultado
-                        } else {
-                            onVolver()
+                            val formularioAEnviar = form
+
+                            scope.launch {
+                                var salir = false
+
+                                try {
+                                    when (
+                                        val resultado = viewModel.guardarMovimiento(
+                                            form = formularioAEnviar,
+                                            usuario = usuario
+                                        )
+                                    ) {
+                                        is ResultadoOperacion.Exito -> {
+                                            salir = true
+                                        }
+
+                                        is ResultadoOperacion.Validacion -> {
+                                            form = resultado.formulario
+                                        }
+
+                                        is ResultadoOperacion.Error -> {
+                                            errorGuardado = resultado.mensaje
+                                        }
+                                    }
+                                } finally {
+                                    guardando = false
+                                }
+
+                                if (salir) {
+                                    onVolver()
+                                }
+                            }
                         }
                     },
+                    enabled = !ocupado && errorCarga == null,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(if (form.esEdicion) "Actualizar" else "Guardar")
+                    Text(
+                        when {
+                            guardando -> "Guardando…"
+                            form.esEdicion -> "Actualizar"
+                            else -> "Guardar"
+                        }
+                    )
                 }
             }
         }

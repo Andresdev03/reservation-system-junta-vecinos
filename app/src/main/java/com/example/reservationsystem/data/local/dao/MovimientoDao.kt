@@ -15,7 +15,7 @@ interface MovimientoDao {
     @Query(value = "SELECT * FROM movimientos ORDER BY id DESC")
     fun getAllMovimientos(): Flow<List<MovimientoEntity>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertMovimiento(movimiento: MovimientoEntity)
 
     @Query(value = "SELECT COALESCE(SUM(monto), 0) FROM movimientos WHERE tipo = 'INGRESO'")
@@ -25,11 +25,15 @@ interface MovimientoDao {
     fun getTotalGastos(): Flow<Double>
 
     @Delete
-    suspend fun deleteMovimiento(movimiento: MovimientoEntity)
+    suspend fun deleteMovimiento(
+        movimiento: MovimientoEntity
+    ): Int
 
     @Query(value = "SELECT * FROM movimientos WHERE id = :id LIMIT 1")
     suspend fun getMovimientoById(id: Int): MovimientoEntity?
 
     @Update
-    suspend fun updateMovimiento(movimiento: MovimientoEntity)
+    suspend fun updateMovimiento(
+        movimiento: MovimientoEntity
+    ): Int
 }

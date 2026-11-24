@@ -273,10 +273,11 @@ fun AppNavigation(
             composable(AppScreen.Movimientos.route) {
                 AccesoProtegido(
                     usuario = usuario,
-                    permiso = Permiso.GESTIONAR_MOVIMIENTOS,
+                    permiso = Permiso.VER_MOVIMIENTOS,
                     onVolver = volverInicio
                 ) {
                     MovimientosScreen(
+                        usuario = usuario,
                         viewModel = viewModel,
                         onAgregarMovimiento = {
                             navController.navigate(
@@ -299,6 +300,7 @@ fun AppNavigation(
                     onVolver = volverInicio
                 ) {
                     NuevoMovimientoScreen(
+                        usuario = usuario,
                         viewModel = viewModel,
                         onVolver = { navController.popBackStack() }
                     )
@@ -322,6 +324,7 @@ fun AppNavigation(
                         ?.getInt("movimientoId") ?: 0
 
                     NuevoMovimientoScreen(
+                        usuario = usuario,
                         viewModel = viewModel,
                         movimientoId = movimientoId,
                         onVolver = { navController.popBackStack() }
@@ -436,7 +439,7 @@ private fun BottomNavigationBar(
             ruta = AppScreen.Movimientos.route,
             etiqueta = "Movimientos",
             icono = R.drawable.receipt_long_24dp_e3e3e3_fill0_wght400_grad0_opsz24,
-            permiso = Permiso.GESTIONAR_MOVIMIENTOS
+            permiso = Permiso.VER_MOVIMIENTOS
         ),
         DestinoPrincipal(
             ruta = AppScreen.Reservas.route,

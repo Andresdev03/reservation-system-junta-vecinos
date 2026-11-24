@@ -17,24 +17,53 @@ class AppRepository(
     fun getTotalIngresos() = movimientoDao.getTotalIngresos()
     fun getTotalGastos() = movimientoDao.getTotalGastos()
 
-    suspend fun insertMovimiento(movimiento: MovimientoEntity) {
+    suspend fun insertMovimiento(
+        movimiento: MovimientoEntity,
+        usuario: UsuarioSesion
+    ) {
+        require(usuario.tienePermiso(Permiso.GESTIONAR_MOVIMIENTOS)) {
+            "Tu cuenta no puede modificar movimientos."
+        }
+
         movimientoDao.insertMovimiento(movimiento)
+    }
+
+    suspend fun updateMovimiento(
+        movimiento: MovimientoEntity,
+        usuario: UsuarioSesion
+    ) {
+        require(usuario.tienePermiso(Permiso.GESTIONAR_MOVIMIENTOS)) {
+            "Tu cuenta no puede modificar movimientos."
+        }
+
+        val actualizados = movimientoDao.updateMovimiento(movimiento)
+
+        check(actualizados == 1) {
+            "El movimiento ya no existe o no pudo actualizarse."
+        }
+    }
+
+    suspend fun deleteMovimiento(
+        movimiento: MovimientoEntity,
+        usuario: UsuarioSesion
+    ) {
+        require(usuario.tienePermiso(Permiso.GESTIONAR_MOVIMIENTOS)) {
+            "Tu cuenta no puede modificar movimientos."
+        }
+
+        val eliminados = movimientoDao.deleteMovimiento(movimiento)
+
+        check(eliminados == 1) {
+            "El movimiento ya no existe o no pudo eliminarse."
+        }
     }
 
     suspend fun insertReserva(reserva: ReservaEntity) {
         reservaDao.insertReserva(reserva)
     }
 
-    suspend fun deleteMovimiento(movimiento: MovimientoEntity) {
-        movimientoDao.deleteMovimiento(movimiento)
-    }
-
     suspend fun getMovimientoById(id: Int): MovimientoEntity? {
         return movimientoDao.getMovimientoById(id)
-    }
-
-    suspend fun updateMovimiento(movimiento: MovimientoEntity) {
-        movimientoDao.updateMovimiento(movimiento)
     }
 
     suspend fun existeReservaConSolapamiento(

@@ -9,7 +9,6 @@ import com.example.reservationsystem.data.local.entity.MovimientoEntity
 import com.example.reservationsystem.data.local.entity.ReservaEntity
 import com.example.reservationsystem.data.repository.AppRepository
 import com.example.reservationsystem.domain.model.EstadoReserva
-import com.example.reservationsystem.domain.model.TipoMovimiento
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -27,12 +26,14 @@ import java.time.LocalDateTime
 import com.example.reservationsystem.domain.auth.Permiso
 import com.example.reservationsystem.domain.auth.UsuarioSesion
 import kotlinx.coroutines.CancellationException
+import com.example.reservationsystem.domain.model.ResultadoOperacion
 data class DashboardUiState(
     val movimientos: List<MovimientoEntity> = emptyList(),
     val reservas: List<ReservaEntity> = emptyList(),
     val totalIngresos: Double = 0.0,
     val totalGastos: Double = 0.0,
-    val mensajeExito: String? = null
+    val mensajeExito: String? = null,
+    val movimientosFiltrados: List<MovimientoEntity> = emptyList()
 ) {
     val saldo: Double get() = totalIngresos - totalGastos
 }
@@ -66,7 +67,8 @@ class MainViewModel(
             movimientos = movimientos,
             reservas = reservas,
             totalIngresos = ingresos,
-            totalGastos = gastos
+            totalGastos = gastos,
+            movimientosFiltrados = movimientosFiltrados
         )
     }.stateIn(
         scope = viewModelScope,
@@ -134,7 +136,14 @@ class MainViewModel(
         }
     }
 
-    suspend fun obtenerFormularioMovimientoPorId(id: Int): MovimientoFormState? {
+    suspend fun obtenerFormularioMovimientoPorId(
+        id: Int,
+        usuario: UsuarioSesion
+    ): MovimientoFormState? {
+        require(usuario.tienePermiso(Permiso.GESTIONAR_MOVIMIENTOS)) {
+            "Tu cuenta no puede editar movimientos."
+        }
+
         val movimiento = repository.getMovimientoById(id) ?: return null
 
         return MovimientoFormState(
@@ -257,52 +266,105 @@ class MainViewModel(
         return ReservaFormState()
     }
 
-    fun agregarMovimiento(form: MovimientoFormState): MovimientoFormState {
-        val descripcionError =
-            if (form.descripcion.isBlank()) "La descripción es obligatoria" else null
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun guardarMovimiento(
+        form: MovimientoFormState,
+        usuario: UsuarioSesion
+    ): ResultadoOperacion<MovimientoFormState> {
+        if (!usuario.tienePermiso(Permiso.GESTIONAR_MOVIMIENTOS)) {
+            return ResultadoOperacion.Error(
+                "Tu cuenta no tiene permisos para guardar movimientos."
+            )
+        }
+
+        val monto = form.monto.trim().toDoubleOrNull()
+
+        val descripcionError = if (form.descripcion.isBlank()) {
+            "La descripción es obligatoria."
+        } else {
+            null
+        }
 
         val montoError = when {
-            form.monto.isBlank() -> "El monto es obligatorio"
-            form.monto.toDoubleOrNull() == null -> "Ingresa un monto válido"
-            form.monto.toDoubleOrNull()!! <= 0.0 -> "El monto debe ser mayor que 0"
+            form.monto.isBlank() ->
+                "El monto es obligatorio."
+
+            monto == null || !monto.isFinite() ->
+                "Ingresa un monto válido."
+
+            monto <= 0.0 ->
+                "El monto debe ser mayor que cero."
+
             else -> null
         }
 
-        val fechaError =
-            if (form.fecha.isBlank()) "La fecha es obligatoria" else null
+        val fechaError = when {
+            form.fecha.isBlank() -> "La fecha es obligatoria."
 
-        val formularioConErrores = form.copy(
+            else -> {
+                try {
+                    LocalDate.parse(
+                        form.fecha.trim(),
+                        DateTimeFormatter.ISO_LOCAL_DATE
+                    )
+                    null
+                } catch (e: java.time.format.DateTimeParseException) {
+                    "Usa una fecha válida con formato yyyy-MM-dd."
+                }
+            }
+        }
+
+        val formularioValidado = form.copy(
             descripcionError = descripcionError,
             montoError = montoError,
             fechaError = fechaError
         )
 
-        val formularioValido = descripcionError == null &&
-                montoError == null &&
-                fechaError == null
+        if (
+            descripcionError != null ||
+            montoError != null ||
+            fechaError != null
+        ) {
+            return ResultadoOperacion.Validacion(formularioValidado)
+        }
 
-        if (!formularioValido) return formularioConErrores
-
-        viewModelScope.launch {
+        return try {
             val movimiento = MovimientoEntity(
                 id = form.id ?: 0,
                 descripcion = form.descripcion.trim(),
-                monto = form.monto.toDouble(),
+                monto = requireNotNull(monto),
                 tipo = form.tipo,
                 fecha = form.fecha.trim(),
                 rutaComprobante = form.rutaComprobante
             )
 
             if (form.esEdicion) {
-                repository.updateMovimiento(movimiento)
-                _mensajeExitoMovimiento.value = "Movimiento actualizado correctamente"
+                repository.updateMovimiento(
+                    movimiento = movimiento,
+                    usuario = usuario
+                )
             } else {
-                repository.insertMovimiento(movimiento)
-                _mensajeExitoMovimiento.value = "Movimiento guardado correctamente"
+                repository.insertMovimiento(
+                    movimiento = movimiento,
+                    usuario = usuario
+                )
             }
-        }
 
-        return MovimientoFormState(tipo = form.tipo)
+            _mensajeExitoMovimiento.value = if (form.esEdicion) {
+                "Movimiento actualizado correctamente."
+            } else {
+                "Movimiento guardado correctamente."
+            }
+
+            ResultadoOperacion.Exito(formularioValidado)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            ResultadoOperacion.Error(
+                "No se pudo guardar el movimiento. " +
+                        "Tus datos siguen en el formulario."
+            )
+        }
     }
 
     fun limpiarErroresMovimiento(form: MovimientoFormState): MovimientoFormState {
@@ -380,10 +442,32 @@ class MainViewModel(
     }
 
     // Deletes
-    fun eliminarMovimiento(movimiento: MovimientoEntity) {
-        viewModelScope.launch {
-            repository.deleteMovimiento(movimiento)
-            _mensajeExitoMovimiento.value = "Movimiento eliminado correctamente"
+    suspend fun eliminarMovimiento(
+        movimiento: MovimientoEntity,
+        usuario: UsuarioSesion
+    ): ResultadoOperacion<Unit> {
+        if (!usuario.tienePermiso(Permiso.GESTIONAR_MOVIMIENTOS)) {
+            return ResultadoOperacion.Error(
+                "Tu cuenta no tiene permisos para eliminar movimientos."
+            )
+        }
+
+        return try {
+            repository.deleteMovimiento(
+                movimiento = movimiento,
+                usuario = usuario
+            )
+
+            _mensajeExitoMovimiento.value =
+                "Movimiento eliminado correctamente."
+
+            ResultadoOperacion.Exito(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            ResultadoOperacion.Error(
+                "No se pudo eliminar el movimiento. Actualiza la lista e inténtalo nuevamente."
+            )
         }
     }
 

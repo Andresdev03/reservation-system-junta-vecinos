@@ -4,7 +4,8 @@ enum class Permiso(val descripcion: String) {
     VER_INICIO("Consultar el resumen comunitario"),
     SOLICITAR_RESERVA("Solicitar reservas"),
     GESTIONAR_RESERVAS("Administrar reservas"),
-    GESTIONAR_MOVIMIENTOS("Administrar movimientos")
+    VER_MOVIMIENTOS("Consultar movimientos"),
+    GESTIONAR_MOVIMIENTOS("Crear, editar y eliminar movimientos")
 }
 
 enum class Rol(
@@ -24,13 +25,19 @@ enum class Rol(
         permisos = setOf(
             Permiso.VER_INICIO,
             Permiso.SOLICITAR_RESERVA,
+            Permiso.VER_MOVIMIENTOS,
             Permiso.GESTIONAR_MOVIMIENTOS
         )
     ),
 
     DIRECTIVA(
         etiqueta = "Directiva / Secretaría",
-        permisos = Permiso.values().toSet()
+        permisos = setOf(
+            Permiso.VER_INICIO,
+            Permiso.SOLICITAR_RESERVA,
+            Permiso.GESTIONAR_RESERVAS,
+            Permiso.VER_MOVIMIENTOS
+        )
     )
 }
 

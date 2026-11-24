@@ -47,11 +47,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import androidx.compose.runtime.LaunchedEffect
-
+import com.example.reservationsystem.domain.auth.Permiso
+import com.example.reservationsystem.domain.auth.UsuarioSesion
+import com.example.reservationsystem.domain.model.ResultadoOperacion
+import kotlinx.coroutines.launch
 
 @Composable
 fun MovimientosScreen(
     viewModel: MainViewModel,
+    usuario: UsuarioSesion,
     onAgregarMovimiento: () -> Unit,
     onEditarMovimiento: (Int) -> Unit
 ) {
@@ -63,6 +67,11 @@ fun MovimientosScreen(
     val mensajeExitoMovimiento by viewModel.mensajeExitoMovimiento.collectAsStateWithLifecycle()
 
     var movimientoAEliminar by remember { mutableStateOf<MovimientoEntity?>(null) }
+
+    val puedeGestionar =
+        usuario.tienePermiso(Permiso.GESTIONAR_MOVIMIENTOS)
+
+    var eliminando by remember { mutableStateOf(false) }
 
     LaunchedEffect(mensajeExitoMovimiento) {
         mensajeExitoMovimiento?.let { mensaje ->
@@ -76,8 +85,10 @@ fun MovimientosScreen(
             SnackbarHost(hostState = snackbarHostState)
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAgregarMovimiento) {
-                Text("+")
+            if (puedeGestionar) {
+                FloatingActionButton(onClick = onAgregarMovimiento) {
+                    Text("+")
+                }
             }
         }
     ) { padding ->
@@ -93,7 +104,8 @@ fun MovimientosScreen(
                 exit = fadeOut()
             ) {
                 EmptyMovimientosState(
-                    onAgregarMovimiento = onAgregarMovimiento
+                    onAgregarMovimiento = onAgregarMovimiento,
+                    puedeGestionar = puedeGestionar,
                 )
             }
 
@@ -147,7 +159,10 @@ fun MovimientosScreen(
                             )
                         }
 
-                        items(state.movimientos) { movimiento ->
+                        items(
+                            items = state.movimientosFiltrados,
+                            key = { it.id }
+                        ) { movimiento ->
                             MovimientoItem(
                                 movimiento = movimiento,
                                 onEditarClick = {
@@ -155,7 +170,9 @@ fun MovimientosScreen(
                                 },
                                 onEliminarClick = {
                                     movimientoAEliminar = movimiento
-                                }
+                                },
+                                puedeGestionar = puedeGestionar,
+                                accionesHabilitadas = !eliminando,
                             )
                         }
                     }
@@ -169,8 +186,37 @@ fun MovimientosScreen(
                         movimientoAEliminar = null
                     },
                     onConfirm = {
-                        viewModel.eliminarMovimiento(movimiento)
-                        movimientoAEliminar = null
+                        if (!eliminando && puedeGestionar) {
+                            eliminando = true
+                            movimientoAEliminar = null
+
+                            scope.launch {
+                                try {
+                                    when (
+                                        val resultado = viewModel.eliminarMovimiento(
+                                            movimiento = movimiento,
+                                            usuario = usuario
+                                        )
+                                    ) {
+                                        is ResultadoOperacion.Exito -> Unit
+
+                                        is ResultadoOperacion.Error -> {
+                                            snackbarHostState.showSnackbar(
+                                                resultado.mensaje
+                                            )
+                                        }
+
+                                        is ResultadoOperacion.Validacion -> {
+                                            snackbarHostState.showSnackbar(
+                                                "No se pudo completar la eliminación."
+                                            )
+                                        }
+                                    }
+                                } finally {
+                                    eliminando = false
+                                }
+                            }
+                        }
                     }
                 )
             }
@@ -180,6 +226,7 @@ fun MovimientosScreen(
 
 @Composable
 private fun EmptyMovimientosState(
+    puedeGestionar: Boolean,
     onAgregarMovimiento: () -> Unit
 ) {
     Box(
@@ -206,8 +253,10 @@ private fun EmptyMovimientosState(
                     style = MaterialTheme.typography.bodyMedium
                 )
 
-                Button(onClick = onAgregarMovimiento) {
-                    Text("Agregar primer movimiento")
+                if (puedeGestionar) {
+                    Button(onClick = onAgregarMovimiento) {
+                        Text("Agregar primer movimiento")
+                    }
                 }
             }
         }
@@ -258,6 +307,8 @@ private fun ResumenMovimientosCard(
 @Composable
 private fun MovimientoItem(
     movimiento: MovimientoEntity,
+    puedeGestionar: Boolean,
+    accionesHabilitadas: Boolean,
     onEditarClick: () -> Unit,
     onEliminarClick: () -> Unit
 ) {
@@ -308,12 +359,26 @@ private fun MovimientoItem(
                 }
             }
 
-            Column {
-                IconButton(onClick = onEditarClick) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.edit_24dp_e3e3e3_fill0_wght400_grad0_opsz24),
-                        contentDescription = "Editar movimiento"
-                    )
+            if (puedeGestionar) {
+                Column {
+                    IconButton(
+                        onClick = onEditarClick,
+                        enabled = accionesHabilitadas
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                id = R.drawable.edit_24dp_e3e3e3_fill0_wght400_grad0_opsz24
+                            ),
+                            contentDescription = "Editar movimiento"
+                        )
+                    }
+
+                    TextButton(
+                        onClick = onEliminarClick,
+                        enabled = accionesHabilitadas
+                    ) {
+                        Text("Eliminar")
+                    }
                 }
             }
         }

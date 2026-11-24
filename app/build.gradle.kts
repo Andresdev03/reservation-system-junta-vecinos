@@ -57,7 +57,10 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation(libs.junit.junit)
     ksp(libs.androidx.room.compiler)
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation(libs.junit)
 }
