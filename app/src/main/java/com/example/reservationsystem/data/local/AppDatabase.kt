@@ -10,7 +10,7 @@ import com.example.reservationsystem.data.local.entity.ReservaEntity
 
 @Database(
     entities = [MovimientoEntity::class, ReservaEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 

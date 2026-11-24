@@ -309,12 +309,6 @@ private fun MovimientoItem(
             }
 
             Column {
-                IconButton(onClick = onEliminarClick) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.delete_24dp_e3e3e3_fill0_wght400_grad0_opsz24),
-                        contentDescription = "Eliminar movimiento"
-                    )
-                }
                 IconButton(onClick = onEditarClick) {
                     Icon(
                         painter = painterResource(id = R.drawable.edit_24dp_e3e3e3_fill0_wght400_grad0_opsz24),

@@ -5,7 +5,8 @@ import com.example.reservationsystem.data.local.dao.ReservaDao
 import com.example.reservationsystem.data.local.entity.MovimientoEntity
 import com.example.reservationsystem.data.local.entity.ReservaEntity
 import com.example.reservationsystem.domain.model.EstadoReserva
-
+import com.example.reservationsystem.domain.auth.Permiso
+import com.example.reservationsystem.domain.auth.UsuarioSesion
 
 class AppRepository(
     private val movimientoDao: MovimientoDao,
@@ -54,5 +55,74 @@ class AppRepository(
 
     suspend fun deleteReserva(reserva: ReservaEntity) {
         reservaDao.deleteReserva(reserva)
+    }
+
+    fun getMisReservas(usuario: UsuarioSesion) =
+        reservaDao.getReservasPorUsuario(usuario.id)
+
+    suspend fun crearSolicitudReserva(
+        usuario: UsuarioSesion,
+        fecha: String,
+        horaInicio: String,
+        horaFin: String
+    ): Boolean {
+        require(usuario.tienePermiso(Permiso.SOLICITAR_RESERVA)) {
+            "Tu cuenta no puede solicitar reservas."
+        }
+
+        require(usuario.id.isNotBlank()) {
+            "No se pudo identificar al usuario."
+        }
+
+        return reservaDao.insertarSiDisponible(
+            ReservaEntity(
+                solicitanteId = usuario.id,
+                solicitante = usuario.nombre,
+                fecha = fecha.trim(),
+                horaInicio = horaInicio.trim(),
+                horaFin = horaFin.trim(),
+                estado = EstadoReserva.PENDIENTE
+            )
+        )
+    }
+
+    suspend fun cancelarMiReserva(
+        usuario: UsuarioSesion,
+        reservaId: Int
+    ) {
+        require(usuario.id.isNotBlank()) {
+            "No se pudo identificar al usuario."
+        }
+
+        val actualizadas = reservaDao.cancelarPendientePropia(
+            reservaId = reservaId,
+            usuarioId = usuario.id
+        )
+
+        check(actualizadas == 1) {
+            "No se pudo cancelar: la solicitud ya no está pendiente " +
+                    "o no pertenece a tu cuenta."
+        }
+    }
+
+    suspend fun resolverSolicitudPendiente(
+        reservaId: Int,
+        nuevoEstado: EstadoReserva
+    ) {
+        require(
+            nuevoEstado == EstadoReserva.CONFIRMADA ||
+                    nuevoEstado == EstadoReserva.RECHAZADA
+        ) {
+            "Cambio de estado no permitido."
+        }
+
+        val actualizadas = reservaDao.cambiarEstadoPendiente(
+            reservaId = reservaId,
+            nuevoEstado = nuevoEstado
+        )
+
+        check(actualizadas == 1) {
+            "La solicitud ya no está pendiente. Revisa su estado actual."
+        }
     }
 }

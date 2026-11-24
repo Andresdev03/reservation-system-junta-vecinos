@@ -24,7 +24,9 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.LocalDateTime
-
+import com.example.reservationsystem.domain.auth.Permiso
+import com.example.reservationsystem.domain.auth.UsuarioSesion
+import kotlinx.coroutines.CancellationException
 data class DashboardUiState(
     val movimientos: List<MovimientoEntity> = emptyList(),
     val reservas: List<ReservaEntity> = emptyList(),
@@ -149,7 +151,13 @@ class MainViewModel(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun guardarReserva(form: ReservaFormState): ReservaFormState {
+    suspend fun guardarReserva(
+        form: ReservaFormState,
+        usuario: UsuarioSesion
+    ): ReservaFormState {
+        require(usuario.tienePermiso(Permiso.SOLICITAR_RESERVA)) {
+            "Tu cuenta no puede solicitar reservas."
+        }
         val solicitanteError =
             if (form.solicitante.isBlank()) "El solicitante es obligatorio" else null
 
@@ -227,13 +235,14 @@ class MainViewModel(
             )
         }
 
-        val hayConflicto = repository.existeReservaConSolapamiento(
-            fecha = form.fecha.trim(),
-            horaInicio = form.horaInicio.trim(),
-            horaFin = form.horaFin.trim()
+        val creada = repository.crearSolicitudReserva(
+            usuario = usuario,
+            fecha = form.fecha,
+            horaInicio = form.horaInicio,
+            horaFin = form.horaFin
         )
 
-        if (hayConflicto) {
+        if (!creada) {
             return form.copy(
                 solicitanteError = null,
                 fechaError = null,
@@ -242,16 +251,6 @@ class MainViewModel(
                 duplicidadError = "El horario se solapa con una reserva existente"
             )
         }
-
-        repository.insertReserva(
-            ReservaEntity(
-                solicitante = form.solicitante.trim(),
-                fecha = form.fecha.trim(),
-                horaInicio = form.horaInicio.trim(),
-                horaFin = form.horaFin.trim(),
-                estado = EstadoReserva.PENDIENTE
-            )
-        )
 
         _mensajeExito.value = "Reserva creada correctamente"
 
@@ -340,26 +339,43 @@ class MainViewModel(
     */
 
     fun confirmarReserva(reserva: ReservaEntity) {
-        viewModelScope.launch {
-            repository.updateReserva(
-                reserva.copy(
-                    estado = EstadoReserva.CONFIRMADA
-                )
-            )
-
-            _mensajeExito.value = "Reserva confirmada correctamente"
-        }
+        resolverSolicitud(
+            reservaId = reserva.id,
+            nuevoEstado = EstadoReserva.CONFIRMADA
+        )
     }
 
     fun rechazarReserva(reserva: ReservaEntity) {
-        viewModelScope.launch {
-            repository.updateReserva(
-                reserva.copy(
-                    estado = EstadoReserva.RECHAZADA
-                )
-            )
+        resolverSolicitud(
+            reservaId = reserva.id,
+            nuevoEstado = EstadoReserva.RECHAZADA
+        )
+    }
 
-            _mensajeExito.value = "Reserva rechazada correctamente"
+
+    private fun resolverSolicitud(
+        reservaId: Int,
+        nuevoEstado: EstadoReserva
+    ) {
+        viewModelScope.launch {
+            try {
+                repository.resolverSolicitudPendiente(
+                    reservaId = reservaId,
+                    nuevoEstado = nuevoEstado
+                )
+
+                _mensajeExitoReserva.value =
+                    if (nuevoEstado == EstadoReserva.CONFIRMADA) {
+                        "Reserva confirmada correctamente"
+                    } else {
+                        "Reserva rechazada correctamente"
+                    }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _mensajeExitoReserva.value =
+                    e.message ?: "No se pudo actualizar la solicitud."
+            }
         }
     }
 
@@ -369,6 +385,15 @@ class MainViewModel(
             repository.deleteMovimiento(movimiento)
             _mensajeExitoMovimiento.value = "Movimiento eliminado correctamente"
         }
+    }
+
+    fun crearMisReservasFactory(
+        usuario: UsuarioSesion
+    ): ViewModelProvider.Factory {
+        return MisReservasViewModelFactory(
+            repository = repository,
+            usuario = usuario
+        )
     }
 }
 

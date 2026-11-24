@@ -192,8 +192,12 @@ import com.example.reservationsystem.ui.screens.reservas.NuevaReservaScreen
 import com.example.reservationsystem.ui.screens.reservas.ReservasScreen
 import com.example.reservationsystem.ui.screens.resumen.InicioScreen
 import com.example.reservationsystem.viewmodel.MainViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reservationsystem.ui.screens.reservas.MisReservasScreen
+import com.example.reservationsystem.viewmodel.MisReservasViewModel
 
 private const val RUTA_PERFIL = "perfil"
+private const val RUTA_MIS_RESERVAS = "mis_reservas"
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -234,6 +238,28 @@ fun AppNavigation(
                 fadeOut(tween(180))
             }
         ) {
+            composable(RUTA_MIS_RESERVAS) { backStackEntry ->
+                val factory = remember(usuario.id, viewModel) {
+                    viewModel.crearMisReservasFactory(usuario)
+                }
+
+                val misReservasViewModel: MisReservasViewModel = viewModel(
+                    viewModelStoreOwner = backStackEntry,
+                    key = "mis-reservas-${usuario.id}",
+                    factory = factory
+                )
+
+                MisReservasScreen(
+                    viewModel = misReservasViewModel,
+                    onNuevaReserva = {
+                        navController.navigate(AppScreen.NuevaReserva.route)
+                    },
+                    onVolver = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
             composable(AppScreen.Inicio.route) {
                 AccesoProtegido(
                     usuario = usuario,
@@ -340,9 +366,12 @@ fun AppNavigation(
                     cargando = cerrandoSesion,
                     mensaje = mensajeSesion,
                     onSolicitarReserva = {
-                        navController.navigate(
-                            AppScreen.NuevaReserva.route
-                        )
+                        navController.navigate(AppScreen.NuevaReserva.route)
+                    },
+                    onMisReservas = {
+                        navController.navigate(RUTA_MIS_RESERVAS) {
+                            launchSingleTop = true
+                        }
                     },
                     onCerrarSesion = onCerrarSesion
                 )

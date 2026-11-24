@@ -16,6 +16,7 @@ import com.example.reservationsystem.viewmodel.MainViewModelFactory
 import com.example.reservationsystem.notifications.NotificationHelper
 import com.example.reservationsystem.ui.navigation.AppNavigation
 import com.example.reservationsystem.ui.navigation.AppRoot
+import com.example.reservationsystem.data.local.DatabaseMigrations
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -26,7 +27,9 @@ class MainActivity : ComponentActivity() {
             applicationContext,
             AppDatabase::class.java,
             "gestion_vecinal_db"
-        ).fallbackToDestructiveMigration().build()
+        )
+            .addMigrations(DatabaseMigrations.MIGRATION_3_4)
+            .build()
 
         val repository = AppRepository(
             movimientoDao = db.movimientoDao(),

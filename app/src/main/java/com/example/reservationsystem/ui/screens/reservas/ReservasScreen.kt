@@ -199,9 +199,17 @@ private fun ReservaItem(
                 Text(
                     text = "Estado: ${reserva.estado}",
                     color = when (reserva.estado) {
-                        EstadoReserva.PENDIENTE -> MaterialTheme.colorScheme.tertiary
-                        EstadoReserva.CONFIRMADA -> MaterialTheme.colorScheme.primary
-                        EstadoReserva.RECHAZADA -> MaterialTheme.colorScheme.error
+                        EstadoReserva.PENDIENTE ->
+                            MaterialTheme.colorScheme.tertiary
+
+                        EstadoReserva.CONFIRMADA ->
+                            MaterialTheme.colorScheme.primary
+
+                        EstadoReserva.RECHAZADA ->
+                            MaterialTheme.colorScheme.error
+
+                        EstadoReserva.CANCELADA ->
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )
 

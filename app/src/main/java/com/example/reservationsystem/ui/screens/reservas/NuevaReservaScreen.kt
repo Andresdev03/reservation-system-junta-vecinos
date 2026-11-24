@@ -475,7 +475,8 @@ fun NuevaReservaScreen(
 
                                 try {
                                     val resultado = viewModel.guardarReserva(
-                                        formularioAEnviar
+                                        form = formularioAEnviar,
+                                        usuario = usuario
                                     )
 
                                     form = resultado

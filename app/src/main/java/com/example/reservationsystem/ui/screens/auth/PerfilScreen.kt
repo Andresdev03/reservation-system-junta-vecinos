@@ -16,7 +16,8 @@ fun PerfilScreen(
     cargando: Boolean,
     mensaje: String?,
     onSolicitarReserva: () -> Unit,
-    onCerrarSesion: () -> Unit
+    onCerrarSesion: () -> Unit,
+    onMisReservas: () -> Unit
 ) {
     var confirmarSalida by remember { mutableStateOf(false) }
 
@@ -34,6 +35,11 @@ fun PerfilScreen(
 
         Text(usuario.nombre, style = MaterialTheme.typography.titleLarge)
         Text(usuario.correo)
+        // Remover en el futuro
+        Text(
+            text = "ID de prueba: ${usuario.id}",
+            style = MaterialTheme.typography.bodySmall
+        )
         Text("Rol: ${usuario.rol.etiqueta}")
 
         Text(
@@ -53,6 +59,14 @@ fun PerfilScreen(
             ) {
                 Text("Solicitar una reserva")
             }
+        }
+
+        OutlinedButton(
+            onClick = onMisReservas,
+            enabled = !cargando,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Mis reservas")
         }
 
         mensaje?.let { Text(it) }

@@ -52,7 +52,8 @@ class DemoAuthRepository : AuthRepository {
         nombre: String,
         correo: String,
         clave: String,
-        rol: Rol
+        rol: Rol,
+        id: String = UUID.randomUUID().toString()
     ): Cuenta {
         val sal = ByteArray(16).also {
             SecureRandom().nextBytes(it)
@@ -60,7 +61,7 @@ class DemoAuthRepository : AuthRepository {
 
         return Cuenta(
             usuario = UsuarioSesion(
-                id = UUID.randomUUID().toString(),
+                id = id,
                 nombre = nombre,
                 correo = normalizar(correo),
                 rol = rol
@@ -89,7 +90,8 @@ class DemoAuthRepository : AuthRepository {
                 nombre = perfilDemo.first,
                 correo = correoNormalizado,
                 clave = "Demo12345!",
-                rol = perfilDemo.second
+                rol = perfilDemo.second,
+                id = "demo-${perfilDemo.second.name.lowercase(Locale.ROOT)}"
             ).also {
                 cuentas[correoNormalizado] = it
             }
