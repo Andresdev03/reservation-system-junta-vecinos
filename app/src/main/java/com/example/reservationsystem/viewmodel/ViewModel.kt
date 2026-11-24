@@ -129,10 +129,31 @@ class MainViewModel(
     }
      */
 
-    fun eliminarReserva(reserva: ReservaEntity) {
+    fun limpiarEstadoTemporal() {
+        filtroMovimiento.value = FiltroMovimiento.TODOS
+        _mensajeExito.value = null
+        _mensajeExitoMovimiento.value = null
+        _mensajeExitoReserva.value = null
+    }
+
+    fun eliminarReserva(
+        reserva: ReservaEntity,
+        usuario: UsuarioSesion
+    ) {
         viewModelScope.launch {
-            repository.deleteReserva(reserva)
-            _mensajeExitoReserva.value = "Reserva eliminada correctamente"
+            try {
+                repository.deleteReserva(
+                    reserva = reserva,
+                    usuario = usuario
+                )
+
+                _mensajeExitoReserva.value = "Reserva eliminada correctamente."
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _mensajeExitoReserva.value =
+                    "No se pudo eliminar la reserva."
+            }
         }
     }
 
@@ -400,30 +421,40 @@ class MainViewModel(
     }
     */
 
-    fun confirmarReserva(reserva: ReservaEntity) {
+    fun confirmarReserva(
+        reserva: ReservaEntity,
+        usuario: UsuarioSesion
+    ) {
         resolverSolicitud(
             reservaId = reserva.id,
-            nuevoEstado = EstadoReserva.CONFIRMADA
+            nuevoEstado = EstadoReserva.CONFIRMADA,
+            usuario = usuario
         )
     }
 
-    fun rechazarReserva(reserva: ReservaEntity) {
+    fun rechazarReserva(
+        reserva: ReservaEntity,
+        usuario: UsuarioSesion
+    ) {
         resolverSolicitud(
             reservaId = reserva.id,
-            nuevoEstado = EstadoReserva.RECHAZADA
+            nuevoEstado = EstadoReserva.RECHAZADA,
+            usuario = usuario
         )
     }
 
 
     private fun resolverSolicitud(
         reservaId: Int,
-        nuevoEstado: EstadoReserva
+        nuevoEstado: EstadoReserva,
+        usuario: UsuarioSesion
     ) {
         viewModelScope.launch {
             try {
                 repository.resolverSolicitudPendiente(
                     reservaId = reservaId,
-                    nuevoEstado = nuevoEstado
+                    nuevoEstado = nuevoEstado,
+                    usuario = usuario
                 )
 
                 _mensajeExitoReserva.value =

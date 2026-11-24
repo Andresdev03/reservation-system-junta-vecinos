@@ -159,6 +159,12 @@ fun MovimientosScreen(
                             )
                         }
 
+                        if (state.movimientosFiltrados.isEmpty()) {
+                            item {
+                                Text("No hay movimientos para este filtro.")
+                            }
+                        }
+
                         items(
                             items = state.movimientosFiltrados,
                             key = { it.id }

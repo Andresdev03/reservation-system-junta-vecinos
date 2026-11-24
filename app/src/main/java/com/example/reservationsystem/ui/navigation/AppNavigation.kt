@@ -340,6 +340,7 @@ fun AppNavigation(
                 ) {
                     ReservasScreen(
                         viewModel = viewModel,
+                        usuario = usuario,
                         onAgregarReserva = {
                             navController.navigate(
                                 AppScreen.NuevaReserva.route

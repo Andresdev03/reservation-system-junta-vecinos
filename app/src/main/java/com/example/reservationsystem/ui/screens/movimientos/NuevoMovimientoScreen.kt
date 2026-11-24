@@ -350,9 +350,9 @@ fun NuevoMovimientoScreen(
 
                     AnimatedVisibility(
                         visible = !rutaComprobante.isNullOrBlank(),
-                        enter = fadeIn(animationSpec = tween(durationMillis = 2000)) +
+                        enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
                                 expandVertically(
-                                    animationSpec = tween(durationMillis = 2000),
+                                    animationSpec = tween(durationMillis = 200),
                                     expandFrom = Alignment.Top
                                 )
                     ) {

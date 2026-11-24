@@ -41,10 +41,12 @@ import com.example.reservationsystem.R
 import com.example.reservationsystem.data.local.entity.ReservaEntity
 import com.example.reservationsystem.domain.model.EstadoReserva
 import com.example.reservationsystem.viewmodel.MainViewModel
+import com.example.reservationsystem.domain.auth.UsuarioSesion
 
 @Composable
 fun ReservasScreen(
     viewModel: MainViewModel,
+    usuario: UsuarioSesion,
     onAgregarReserva: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -104,8 +106,12 @@ fun ReservasScreen(
                     items(state.reservas) { reserva ->
                         ReservaItem(
                             reserva = reserva,
-                            onConfirmar = { viewModel.confirmarReserva(reserva) },
-                            onRechazar = { viewModel.rechazarReserva(reserva) },
+                            onConfirmar = {
+                                viewModel.confirmarReserva(reserva, usuario)
+                            },
+                            onRechazar = {
+                                viewModel.rechazarReserva(reserva, usuario)
+                            },
                             onEliminar = {
                                 reservaAEliminar = reserva
                             }
@@ -121,7 +127,7 @@ fun ReservasScreen(
                         reservaAEliminar = null
                     },
                     onConfirm = {
-                        viewModel.eliminarReserva(reserva)
+                        viewModel.eliminarReserva(reserva, usuario)
                         reservaAEliminar = null
                     }
                 )

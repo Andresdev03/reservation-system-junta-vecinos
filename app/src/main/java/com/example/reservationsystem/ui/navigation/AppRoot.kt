@@ -21,6 +21,10 @@ fun AppRoot(mainViewModel: MainViewModel) {
     val state by authViewModel.uiState.collectAsState()
     val usuario = state.usuario
 
+    LaunchedEffect(usuario?.id) {
+        mainViewModel.limpiarEstadoTemporal()
+    }
+
     if (usuario == null) {
         AuthScreen(
             state = state,

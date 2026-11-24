@@ -78,8 +78,15 @@ class AppRepository(
         )
     }
 
-    suspend fun updateReserva(reserva: ReservaEntity) {
-        reservaDao.updateReserva(reserva)
+    suspend fun deleteReserva(
+        reserva: ReservaEntity,
+        usuario: UsuarioSesion
+    ) {
+        require(usuario.tienePermiso(Permiso.GESTIONAR_RESERVAS)) {
+            "Tu cuenta no puede administrar reservas."
+        }
+
+        reservaDao.deleteReserva(reserva)
     }
 
     suspend fun deleteReserva(reserva: ReservaEntity) {
@@ -136,8 +143,13 @@ class AppRepository(
 
     suspend fun resolverSolicitudPendiente(
         reservaId: Int,
-        nuevoEstado: EstadoReserva
+        nuevoEstado: EstadoReserva,
+        usuario: UsuarioSesion
     ) {
+        require(usuario.tienePermiso(Permiso.GESTIONAR_RESERVAS)) {
+            "Tu cuenta no puede administrar reservas."
+        }
+
         require(
             nuevoEstado == EstadoReserva.CONFIRMADA ||
                     nuevoEstado == EstadoReserva.RECHAZADA
